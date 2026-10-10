@@ -117,8 +117,8 @@ __DOLLAR____DOLLAR__;
 SELECT format('CREATE DATABASE %I OWNER %I', 'purchaseflow_odoo', 'purchaseflow_odoo')
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'purchaseflow_odoo') \gexec
 "@
-Set-Content -LiteralPath $sqlPath -Encoding utf8 -Value $sql
 $sql = $sql.Replace("__DOLLAR__", '$')
+Set-Content -LiteralPath $sqlPath -Encoding utf8 -Value $sql
 
 # Compose validates every service's env_file during some read-only queries. These
 # empty placeholders let the Odoo-only bootstrap run before the app/n8n bootstrap
