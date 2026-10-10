@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import json
 import os
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
-import uuid
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 BASE_URL = os.environ.get("ODOO_BASE_URL", "http://127.0.0.1:8069").rstrip("/")
-LOCAL = Path("/run/purchaseflow-local")
-API_KEY_FILE = LOCAL / "odoo-api-key"
-MANIFEST_FILE = LOCAL / "odoo-seed-manifest.json"
-RESULT_FILE = LOCAL / "odoo-json2-acceptance.json"
+API_KEY_FILE = Path(os.environ.get("ODOO_API_KEY_FILE", "/run/purchaseflow-local/odoo-api-key"))
+MANIFEST_FILE = Path(
+    os.environ.get("ODOO_SEED_MANIFEST_FILE", "/run/purchaseflow-local/odoo-seed-manifest.json")
+)
+RESULT_FILE = Path(os.environ.get("ODOO_JSON2_RESULT_FILE", "/tmp/odoo-json2-acceptance.json"))
 CENT = Decimal("0.01")
 
 

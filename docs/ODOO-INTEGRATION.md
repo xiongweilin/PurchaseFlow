@@ -12,6 +12,7 @@ Odoo 19 官方 JSON-2 请求使用 POST /json/2/<model>/<method>、Authorization
 - 当前用户只能访问 Demo Office Ltd. 公司。
 - API key scope 为 Odoo 默认 RPC scope，30 天到期；模型访问继续受该用户的 Odoo ACL、record rule 与 company context 限制。
 - API key 存放在被 Git 忽略的 .local/odoo-api-key；不进入代码、日志、n8n 工作流 JSON 或文档。
+- Odoo seed 在 Odoo 自己的 filestore volume 中暂存新 key；PowerShell bootstrap 捕获一次性返回值到内存后写入本机 `.local`，不会回显 marker。Odoo web service 不挂载整个 `.local`；API/worker 仅以只读 secret-file 路径读取它。
 - 未认证 JSON-2 请求得到 HTTP 401，限权用户读取 ir.config_parameter 得到 HTTP 403。
 
 ## 稳定意图和写入核验

@@ -26,7 +26,6 @@ services:
       - purchaseflow_odoo_data:/var/lib/odoo
       - ./odoo/addons:/mnt/extra-addons:ro
       - ./.local/odoo.conf:/etc/odoo/odoo.conf:ro
-      - ./.local:/run/purchaseflow-local
       - ./odoo/scripts:/opt/purchaseflow/odoo-scripts:ro
     ports:
       - "127.0.0.1:18069:8069"
@@ -60,6 +59,7 @@ services:
       ODOO_DATABASE: purchaseflow_odoo
     volumes:
       - ./.local:/run/purchaseflow-secrets:ro
+      - ./odoo/scripts:/opt/purchaseflow/odoo-scripts:ro
     ports:
       - "127.0.0.1:18000:8000"
     depends_on:

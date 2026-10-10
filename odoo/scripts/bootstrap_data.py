@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta
+import base64
 import json
 import os
-from pathlib import Path
 import secrets
+from datetime import datetime, timedelta
+from pathlib import Path
 
-local = Path("/run/purchaseflow-local")
+pending_api_key = Path("/var/lib/odoo/.purchaseflow-api-key.pending")
 company = env.company.sudo()
 country = env["res.country"].sudo().search([("code", "=", "CN")], limit=1)
 currency = env["res.currency"].sudo().with_context(active_test=False).search([("name", "=", "CNY")], limit=1)
@@ -129,27 +130,31 @@ else:
 
 env.cr.commit()
 
-key_path = local / "odoo-api-key"
-key_temp = local / "odoo-api-key.pending"
-if not key_path.exists():
-    if key_temp.exists():
-        raise RuntimeError("A pending Odoo API key exists; reconcile it before generating another.")
-    expiration = datetime.utcnow() + timedelta(days=30)
-    key = env["res.users.apikeys"].with_user(service_user).sudo()._generate(
-        None,
-        "PurchaseFlow local integration (30 days)",
-        expiration,
-    )
-    with key_temp.open("x", encoding="ascii") as stream:
-        stream.write(key)
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.chmod(key_temp, 0o600)
-    env.cr.commit()
-    key_temp.replace(key_path)
-    os.chmod(key_path, 0o600)
+host_api_key_present = os.environ.get("PURCHASEFLOW_ODOO_API_KEY_PRESENT", "").lower() == "true"
+if host_api_key_present:
+    pending_api_key.unlink(missing_ok=True)
 else:
-    env.cr.commit()
+    if pending_api_key.exists():
+        key = pending_api_key.read_text(encoding="ascii").strip()
+        if not key:
+            raise RuntimeError("A pending Odoo API key file is empty; refusing to create another key.")
+    else:
+        pending_api_key.parent.mkdir(parents=True, exist_ok=True)
+        expiration = datetime.utcnow() + timedelta(days=30)
+        key = env["res.users.apikeys"].with_user(service_user).sudo()._generate(
+            None,
+            "PurchaseFlow local integration (30 days)",
+            expiration,
+        )
+        with pending_api_key.open("x", encoding="ascii") as stream:
+            stream.write(key)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(pending_api_key, 0o600)
+        env.cr.commit()
+    key_b64 = base64.b64encode(key.encode("ascii")).decode("ascii")
+    print("PURCHASEFLOW_ODOO_API_KEY_B64=" + key_b64)
+api_key_available = True
 
 manifest = {
     "odoo_version": "19.0",
@@ -173,12 +178,14 @@ manifest = {
     },
     "integration_user": {"id": service_user.id, "login": service_user.login},
 }
-(local / "odoo-seed-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+manifest_json = json.dumps(manifest, ensure_ascii=False, indent=2)
+manifest_b64 = base64.b64encode(manifest_json.encode("utf-8")).decode("ascii")
+print("PURCHASEFLOW_ODOO_SEED_MANIFEST_B64=" + manifest_b64)
 print("Odoo seed complete:", json.dumps({
     "company": manifest["company"],
     "vendor_count": len(vendors),
     "product_count": len(products),
     "taxes": len(taxes),
     "integration_user": manifest["integration_user"],
-    "api_key_stored": key_path.exists(),
+    "api_key_available": api_key_available,
 }, ensure_ascii=False))

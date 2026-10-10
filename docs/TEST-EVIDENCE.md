@@ -14,11 +14,13 @@
 | 网络绑定 | Odoo 只绑定 `127.0.0.1:18069`；PostgreSQL 仅在项目网络内访问 |
 | 演示数据 | `Demo Office Ltd.`、CNY、供应商、商品、UoM 与税规则均从当前 Odoo 数据库按业务键查找，不依赖硬编码的远端 ID |
 | 认证边界 | Odoo 登录页 HTTP 200；无 bearer 的 JSON-2 请求 HTTP 401；集成账户访问受保护的 `ir.config_parameter` 返回 HTTP 403 |
-| 真实草稿与独立读回 | JSON-2 `purchase.order/create` 创建 `P00001`；新的 `search_read/read` 核对公司、供应商、意图标记、行项目、数量、税率、金额及 `state=draft` |
+| 真实草稿与独立读回 | 确定性验收意图 `PF-STAGE1-ODOO-JSON2` 当前映射到真实 draft `P00029`；新的 `search_read/read` 核对公司、供应商、意图标记、行项目、数量、税率、金额及 `state=draft` |
 | 金额口径 | 1 × 未税单价 CNY 1,200.00；13% 税额 CNY 156.00；含税总额 CNY 1,356.00 |
 | 重放防重复 | 对相同 `purchaseflow_intent_id` 的第二次创建返回 HTTP 422；权威 `search_read` 仍只有一笔草稿 |
 | 响应丢失与 UNKNOWN 恢复 | 受控脚本实际创建 Odoo draft 后丢弃成功响应；应用记录 `erp_unknown`、1 次派发。采购 UI 以同一意图只读核验并结案，没有再次创建 |
-| 重启后持久化 | 重启 PurchaseFlow PostgreSQL、Odoo、API、worker、前端、n8n 与 Mailpit 后，`PR-202610-96BDCA11` 仍映射到 Odoo draft `P00027`；重新向 Odoo 读回且匹配持久审批快照。应用请求、n8n 工作流和 Mailpit 邮件也保留 |
+| 密钥引导边界 | Odoo 容器在自身 filestore volume 暂存新 API key；PowerShell 捕获一次性值但不回显日志，写入 Git 忽略的 `.local/odoo-api-key`（Linux mode 0600）；Odoo Web 服务不挂载整个 `.local` |
+| Odoo 单据重启幂等 | PostgreSQL 与 Odoo 重启后，`PF-STAGE1-ODOO-JSON2` 仍读回同一草稿 `P00029`；重复 create 返回 HTTP 422，查询仍只有该稳定意图的一笔草稿 |
+| 应用全栈重启持久化 | 重启 PurchaseFlow PostgreSQL、Odoo、API、worker、前端、n8n 与 Mailpit 后，`PR-202610-96BDCA11` 仍映射到 Odoo draft `P00027`；重新向 Odoo 读回且匹配持久审批快照。应用请求、n8n 工作流和 Mailpit 邮件也保留 |
 
 现场验证的是自托管 Odoo 19 Community，不推断 Odoo Online 或其他托管版套餐的 API 许可。所有采购单均保持草稿；流程不会确认采购、收货、过账或付款。
 

@@ -34,23 +34,29 @@ if ($LASTEXITCODE -ne 0) { throw "Docker Compose v2 is required." }
 
 Push-Location $root
 try {
-    Write-Host "[1/7] Preparing the Odoo 19 demo database and guarded service credentials..."
+    Write-Host "[1/8] Preparing the Odoo 19 demo database and guarded service credentials..."
     & (Join-Path $PSScriptRoot "bootstrap-odoo.ps1")
 
-    Write-Host "[2/7] Creating the separate PurchaseFlow database role..."
+    Write-Host "[2/8] Creating the separate PurchaseFlow database role..."
     & (Join-Path $PSScriptRoot "bootstrap-app-db.ps1")
 
-    Write-Host "[3/7] Preparing the isolated n8n database and first local owner..."
+    Write-Host "[3/8] Preparing the isolated n8n database and first local owner..."
     & (Join-Path $PSScriptRoot "bootstrap-n8n-owner.ps1")
 
-    Write-Host "[4/7] Building the API and TypeScript web application..."
+    Write-Host "[4/8] Building the API and TypeScript web application..."
     Invoke-Compose -Arguments @("build", "api", "frontend")
 
-    Write-Host "[5/7] Starting the API and waiting for database/Odoo readiness..."
+    Write-Host "[5/8] Verifying real Odoo JSON-2 draft and idempotency behavior..."
+    Invoke-Compose -Arguments @(
+        "run", "--rm", "-T", "--no-deps", "api", "python3",
+        "/opt/purchaseflow/odoo-scripts/acceptance_json2.py"
+    )
+
+    Write-Host "[6/8] Starting the API and waiting for database/Odoo readiness..."
     Invoke-Compose -Arguments @("up", "-d", "api")
     Wait-ServiceHealthy -Service "api"
 
-    Write-Host "[6/7] Applying migrations, seeding idempotent demo data, and starting remaining services..."
+    Write-Host "[7/8] Applying migrations, seeding idempotent demo data, and starting remaining services..."
     Invoke-Compose -Arguments @("--profile", "tools", "run", "--rm", "-T", "bootstrap")
     Invoke-Compose -Arguments @("up", "-d", "worker", "frontend", "mailpit", "n8n")
     foreach ($service in @("frontend", "mailpit", "n8n")) { Wait-ServiceHealthy -Service $service }
@@ -59,7 +65,7 @@ try {
         throw "The PurchaseFlow outbox worker is not running."
     }
 
-    Write-Host "[7/7] Importing encrypted n8n credentials/workflows and running local acceptance checks..."
+    Write-Host "[8/8] Importing encrypted n8n credentials/workflows and running local acceptance checks..."
     & (Join-Path $PSScriptRoot "provision-n8n.ps1")
     & (Join-Path $PSScriptRoot "verify-demo.ps1")
 

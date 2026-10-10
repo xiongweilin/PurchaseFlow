@@ -179,13 +179,55 @@ try {
         throw "Odoo HTTP readiness/authentication check failed (login $($login.StatusCode), JSON-2 $($unauthenticated.StatusCode))."
     }
 
+    $apiKeyPath = Join-Path $localRoot "odoo-api-key"
+    $manifestPath = Join-Path $localRoot "odoo-seed-manifest.json"
+    $apiKeyPresent = $false
+    if (Test-Path -LiteralPath $apiKeyPath -PathType Leaf) {
+        $apiKeyPresent = (Get-Item -LiteralPath $apiKeyPath).Length -gt 0
+    }
+    $apiKeyPresentText = if ($apiKeyPresent) { "true" } else { "false" }
     $seedPath = Join-Path $repositoryRoot "odoo/scripts/bootstrap_data.py"
-    Get-Content -LiteralPath $seedPath -Raw -Encoding utf8 |
-        docker compose @composeArgs run --rm -T odoo odoo shell --database purchaseflow_odoo --no-http
-    if ($LASTEXITCODE -ne 0) { throw "Odoo seed failed with exit code $LASTEXITCODE." }
+    $seedOutput = @(
+        Get-Content -LiteralPath $seedPath -Raw -Encoding utf8 |
+            & docker compose @composeArgs run --rm -T -e "PURCHASEFLOW_ODOO_API_KEY_PRESENT=$apiKeyPresentText" `
+                odoo odoo shell --database purchaseflow_odoo --no-http
+    )
+    $seedExitCode = $LASTEXITCODE
+    if ($seedExitCode -ne 0) { throw "Odoo seed failed with exit code $seedExitCode." }
 
-    Invoke-Compose -Arguments @("exec", "-T", "odoo", "python3", "/opt/purchaseflow/odoo-scripts/acceptance_json2.py")
-    Write-Host "Odoo 19 Community, JSON-2, CNY master data, purchase access, draft read-back, and duplicate-intent guard verified."
+    $keyEncoded = $null
+    $manifestEncoded = $null
+    foreach ($line in $seedOutput) {
+        $keyMatch = [regex]::Match([string]$line, "PURCHASEFLOW_ODOO_API_KEY_B64=([A-Za-z0-9+/]+={0,2})")
+        if ($keyMatch.Success) { $keyEncoded = $keyMatch.Groups[1].Value }
+        $manifestMatch = [regex]::Match([string]$line, "PURCHASEFLOW_ODOO_SEED_MANIFEST_B64=([A-Za-z0-9+/]+={0,2})")
+        if ($manifestMatch.Success) { $manifestEncoded = $manifestMatch.Groups[1].Value }
+    }
+
+    if (-not $apiKeyPresent) {
+        if (-not $keyEncoded) { throw "Odoo seed did not return its newly generated API key." }
+        $apiKey = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($keyEncoded))
+        if ([string]::IsNullOrWhiteSpace($apiKey)) { throw "Odoo returned an empty API key." }
+        [IO.File]::WriteAllText($apiKeyPath, $apiKey, [Text.Encoding]::ASCII)
+    } elseif ($keyEncoded) {
+        throw "Odoo unexpectedly generated a second API key while a host key already exists."
+    }
+    if ($IsLinux -and -not $apiKeyPresent) {
+        [IO.File]::SetUnixFileMode(
+            $apiKeyPath,
+            [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite
+        )
+    }
+
+    if (-not $manifestEncoded) { throw "Odoo seed did not return its generated manifest." }
+    $manifestJson = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($manifestEncoded))
+    $null = $manifestJson | ConvertFrom-Json
+    [IO.File]::WriteAllText($manifestPath, $manifestJson, [Text.UTF8Encoding]::new($false))
+    Invoke-Compose -Arguments @(
+        "exec", "-T", "odoo", "python3", "-c",
+        "from pathlib import Path; Path('/var/lib/odoo/.purchaseflow-api-key.pending').unlink(missing_ok=True)"
+    )
+    Write-Host "Odoo 19 modules and CNY master data are ready; local API credentials were staged without logging their values."
 }
 finally {
     Pop-Location

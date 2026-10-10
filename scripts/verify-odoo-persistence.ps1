@@ -45,13 +45,15 @@ try {
     $login = Invoke-WebRequest -Uri "http://127.0.0.1:18069/web/login" -TimeoutSec 10
     if ($login.StatusCode -ne 200) { throw "Odoo login page returned HTTP $($login.StatusCode) after restart." }
 
-    Invoke-Compose -Arguments @("exec", "-T", "odoo", "python3", "/opt/purchaseflow/odoo-scripts/acceptance_json2.py")
+    Invoke-Compose -Arguments @("restart", "api")
+    Wait-ServiceHealthy -Service "api"
+    Invoke-Compose -Arguments @("exec", "-T", "api", "python3", "/opt/purchaseflow/odoo-scripts/acceptance_json2.py")
 
     $orders = Invoke-ComposeQuery -Arguments @(
         "exec", "-T", "db", "psql", "-U", "purchaseflow_admin", "-d", "purchaseflow_odoo",
-        "-Atqc", "SELECT count(*) FROM purchase_order WHERE purchaseflow_intent_id IS NOT NULL"
+        "-Atqc", "SELECT count(*) FROM purchase_order WHERE purchaseflow_intent_id='PF-STAGE1-ODOO-JSON2'"
     )
-    if ($orders -ne "1") { throw "Expected exactly one PurchaseFlow acceptance order after restart; found $orders." }
+    if ($orders -ne "1") { throw "Expected exactly one stable Odoo acceptance order after restart; found $orders." }
 
     $constraint = Invoke-ComposeQuery -Arguments @(
         "exec", "-T", "db", "psql", "-U", "purchaseflow_admin", "-d", "purchaseflow_odoo",
