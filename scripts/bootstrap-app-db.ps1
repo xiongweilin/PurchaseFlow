@@ -45,6 +45,7 @@ function Wait-Db {
 
 $null = New-Item -ItemType Directory -Force -Path $local
 $hasEnv = Test-Path -LiteralPath $appEnv -PathType Leaf
+if ($hasEnv -and (Get-Item -LiteralPath $appEnv).Length -eq 0) { $hasEnv = $false }
 $hasUrl = Test-Path -LiteralPath $appUrl -PathType Leaf
 if (-not $hasEnv -and -not $hasUrl) {
     $password = New-SecretToken

@@ -103,6 +103,10 @@ This stops containers but **retains Postgres, Odoo filestore, n8n, and Mailpit v
 
 ## Architecture and evidence
 
+[4½-minute product walkthrough with Chinese subtitles](docs/RECORDING.md)
+
+![PurchaseFlow role-aware workbench](docs/assets/purchaseflow-overview.png)
+
 - [Architecture](docs/ARCHITECTURE.md)
 - [Business rules](docs/BUSINESS-RULES.md)
 - [Workflow authority and failure states](docs/WORKFLOW-AUTHORITY.md)
