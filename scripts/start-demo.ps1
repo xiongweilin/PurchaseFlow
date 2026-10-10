@@ -53,8 +53,22 @@ try {
     )
 
     Write-Host "[6/8] Applying Alembic migrations and seeding idempotent demo data..."
-    Invoke-Compose -Arguments @("--profile", "tools", "run", "--rm", "-T", "bootstrap", "alembic", "upgrade", "head")
-    Invoke-Compose -Arguments @("--profile", "tools", "run", "--rm", "-T", "bootstrap")
+    $bootstrapUserArgs = @()
+    if ($IsLinux -or $IsMacOS) {
+        # The seed writes a mode-0600 automation token into the bind-mounted .local directory.
+        # Match the host UID/GID so the host provisioner can read it without weakening file mode.
+        $hostUid = (& id -u).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Unable to read the host UID for the bootstrap container." }
+        $hostGid = (& id -g).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Unable to read the host GID for the bootstrap container." }
+        if ($hostUid -notmatch '^\d+$' -or $hostGid -notmatch '^\d+$') {
+            throw "The host UID/GID for the bootstrap container is invalid."
+        }
+        $bootstrapUserArgs = @("--user", "${hostUid}:${hostGid}")
+    }
+    $bootstrapBaseArgs = @("--profile", "tools", "run", "--rm", "-T") + $bootstrapUserArgs + @("bootstrap")
+    Invoke-Compose -Arguments ($bootstrapBaseArgs + @("alembic", "upgrade", "head"))
+    Invoke-Compose -Arguments $bootstrapBaseArgs
 
     Write-Host "[7/8] Starting the API and remaining services..."
     Invoke-Compose -Arguments @("up", "-d", "api")

@@ -10,9 +10,21 @@ if (-not (Test-Path -LiteralPath (Join-Path $root ".local\app.env") -PathType Le
 
 Push-Location $root
 try {
-    & docker compose @compose --profile tools run --rm -T bootstrap alembic upgrade head
+    $bootstrapUserArgs = @()
+    if ($IsLinux -or $IsMacOS) {
+        $hostUid = (& id -u).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Unable to read the host UID for the bootstrap container." }
+        $hostGid = (& id -g).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Unable to read the host GID for the bootstrap container." }
+        if ($hostUid -notmatch '^\d+$' -or $hostGid -notmatch '^\d+$') {
+            throw "The host UID/GID for the bootstrap container is invalid."
+        }
+        $bootstrapUserArgs = @("--user", "${hostUid}:${hostGid}")
+    }
+    $bootstrapBaseArgs = @("--profile", "tools", "run", "--rm", "-T") + $bootstrapUserArgs + @("bootstrap")
+    & docker compose @compose @bootstrapBaseArgs alembic upgrade head
     if ($LASTEXITCODE -ne 0) { throw "PurchaseFlow Alembic migrations failed." }
-    & docker compose @compose --profile tools run --rm -T bootstrap
+    & docker compose @compose @bootstrapBaseArgs
     if ($LASTEXITCODE -ne 0) { throw "The idempotent PurchaseFlow demo seed failed." }
     Write-Host "PurchaseFlow migrations and idempotent demo seed completed."
 }
