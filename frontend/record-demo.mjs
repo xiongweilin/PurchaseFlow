@@ -97,7 +97,7 @@ try {
   await chapter("运营部负责人核对申请并批准。此时仍未创建 Odoo 采购单，流程转入财务复核。", async () => {
     await signOut();
     await enterRole(/运营部负责人/);
-    await page.getByRole("button", { name: /^部门审批/ }).click();
+    await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^部门审批/ }).click();
     const managerCard = page.locator(".approval-card").filter({ hasText: requestNumber });
     await expect(managerCard).toBeVisible();
     await managerCard.click();

@@ -44,13 +44,13 @@ test("requester → manager → verified Odoo draft → procurement detail", asy
   await page.getByRole("button", { name: /进入工作台/ }).click();
   await expect(page.getByRole("heading", { name: "采购协作工作台" })).toBeVisible();
 
-  await page.getByRole("button", { name: "部门审批" }).click();
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^部门审批/ }).click();
   const card = page.locator(".approval-card").filter({ hasText: requestNumber });
   await expect(card).toBeVisible();
   await card.click();
   const managerDetail = page.getByRole("dialog");
   await managerDetail.getByRole("button", { name: "通过申请" }).click();
-  await expect(page.getByText("审批已记录。")).toBeVisible();
+  await expect(managerDetail.getByText("审批完成", { exact: true }).first()).toBeVisible();
 
   let verified = false;
   for (let attempt = 0; attempt < 24; attempt += 1) {

@@ -25,7 +25,7 @@ test("high-value purchase waits for a distinct finance approval before real Odoo
 
   await page.getByRole("button", { name: /运营部负责人/ }).click();
   await page.getByRole("button", { name: /进入工作台/ }).click();
-  await page.getByRole("button", { name: /^部门审批/ }).click();
+  await page.getByRole("navigation", { name: "主导航" }).getByRole("button", { name: /^部门审批/ }).click();
   const managerCard = page.locator(".approval-card").filter({ hasText: requestNumber });
   await expect(managerCard).toBeVisible();
   await managerCard.click();
