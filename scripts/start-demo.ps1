@@ -52,12 +52,13 @@ try {
         "/opt/purchaseflow/odoo-scripts/acceptance_json2.py"
     )
 
-    Write-Host "[6/8] Starting the API and waiting for database/Odoo readiness..."
+    Write-Host "[6/8] Applying Alembic migrations and seeding idempotent demo data..."
+    Invoke-Compose -Arguments @("--profile", "tools", "run", "--rm", "-T", "bootstrap", "alembic", "upgrade", "head")
+    Invoke-Compose -Arguments @("--profile", "tools", "run", "--rm", "-T", "bootstrap")
+
+    Write-Host "[7/8] Starting the API and remaining services..."
     Invoke-Compose -Arguments @("up", "-d", "api")
     Wait-ServiceHealthy -Service "api"
-
-    Write-Host "[7/8] Applying migrations, seeding idempotent demo data, and starting remaining services..."
-    Invoke-Compose -Arguments @("--profile", "tools", "run", "--rm", "-T", "bootstrap")
     Invoke-Compose -Arguments @("up", "-d", "worker", "frontend", "mailpit", "n8n")
     foreach ($service in @("frontend", "mailpit", "n8n")) { Wait-ServiceHealthy -Service $service }
     $workerId = (& docker compose @compose ps -q worker).Trim()

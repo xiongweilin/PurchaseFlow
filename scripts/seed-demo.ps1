@@ -10,8 +10,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $root ".local\app.env") -PathType Le
 
 Push-Location $root
 try {
+    & docker compose @compose --profile tools run --rm -T bootstrap alembic upgrade head
+    if ($LASTEXITCODE -ne 0) { throw "PurchaseFlow Alembic migrations failed." }
     & docker compose @compose --profile tools run --rm -T bootstrap
-    if ($LASTEXITCODE -ne 0) { throw "The idempotent PurchaseFlow seed/migration command failed." }
+    if ($LASTEXITCODE -ne 0) { throw "The idempotent PurchaseFlow demo seed failed." }
     Write-Host "PurchaseFlow migrations and idempotent demo seed completed."
 }
 finally {
