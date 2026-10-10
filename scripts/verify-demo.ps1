@@ -59,9 +59,28 @@ if ($null -eq $summary.counts -or $null -eq $summary.attention) { throw "The sco
 
 $workflowCount = (& docker compose @compose exec -T db psql -U purchaseflow_admin -d purchaseflow_n8n -Atqc "SELECT count(*) FROM workflow_entity WHERE active IS TRUE AND name IN ('PurchaseFlow · Authenticated procurement intake','PurchaseFlow · Daily approval and ERP digest')").Trim()
 if ($LASTEXITCODE -ne 0 -or $workflowCount -ne "2") { throw "Expected both versioned n8n workflows to be active; found $workflowCount." }
-$intakePath = (& docker compose @compose exec -T db psql -U purchaseflow_admin -d purchaseflow_n8n -Atqc "SELECT ""webhookPath"" FROM webhook_entity WHERE ""workflowId""='9d047287-d2c9-4ee6-9669-1e488d3ef801' LIMIT 1").Trim()
-$summaryPath = (& docker compose @compose exec -T db psql -U purchaseflow_admin -d purchaseflow_n8n -Atqc "SELECT ""webhookPath"" FROM webhook_entity WHERE ""workflowId""='4ca07f03-9e91-443c-9b84-4af611df9a62' LIMIT 1").Trim()
-if ($LASTEXITCODE -ne 0 -or $intakePath -ne "purchaseflow/intake" -or $summaryPath -ne "purchaseflow/summary") {
+
+$intakeQuery = 'SELECT "webhookPath" FROM webhook_entity WHERE "workflowId"=''9d047287-d2c9-4ee6-9669-1e488d3ef801'' LIMIT 1'
+$summaryQuery = 'SELECT "webhookPath" FROM webhook_entity WHERE "workflowId"=''4ca07f03-9e91-443c-9b84-4af611df9a62'' LIMIT 1'
+$webhookDeadline = (Get-Date).AddSeconds(30)
+$intakePath = ""
+$summaryPath = ""
+do {
+    $intakeOutput = & docker compose @compose exec -T db psql -U purchaseflow_admin -d purchaseflow_n8n -Atqc $intakeQuery
+    $intakeExitCode = $LASTEXITCODE
+    if ($intakeExitCode -ne 0) { throw "Unable to inspect the n8n intake webhook registration." }
+    $intakePath = ([string](@($intakeOutput) -join "")).Trim()
+
+    $summaryOutput = & docker compose @compose exec -T db psql -U purchaseflow_admin -d purchaseflow_n8n -Atqc $summaryQuery
+    $summaryExitCode = $LASTEXITCODE
+    if ($summaryExitCode -ne 0) { throw "Unable to inspect the n8n summary webhook registration." }
+    $summaryPath = ([string](@($summaryOutput) -join "")).Trim()
+
+    if ($intakePath -eq "purchaseflow/intake" -and $summaryPath -eq "purchaseflow/summary") { break }
+    Start-Sleep -Seconds 2
+} while ((Get-Date) -lt $webhookDeadline)
+
+if ($intakePath -ne "purchaseflow/intake" -or $summaryPath -ne "purchaseflow/summary") {
     throw "The authenticated n8n intake or summary webhook is not registered at its documented path."
 }
 
