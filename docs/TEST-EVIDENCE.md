@@ -1,6 +1,6 @@
 # 测试证据与环境边界
 
-记录日期：2026-10-10（Asia/Shanghai）。运行结果来自本地隔离演示栈；本文件只记录已观察到的验收，不代表生产部署。
+记录日期：2026-10-11（Asia/Shanghai）。运行结果来自本地隔离演示栈与全新 GitHub Actions runner；本文件只记录已观察到的验收，不代表生产部署。
 
 ## 真实 Odoo 19 Community
 
@@ -46,7 +46,7 @@
 
 GitHub Actions 的自动 CI 负责在全新 runner 上安装依赖、启动隔离 Docker/Odoo/n8n/Mailpit、运行 PostgreSQL 并发测试、静态工作流合同与浏览器验收。手动 `controlled-purchaseflow-integration` 工作流额外注入真实 Odoo 响应丢失、执行 UNKNOWN 浏览器恢复并在随后重启服务验证持久化。
 
-> GitHub 首次推送及两条工作流的实际 run URL 将在完成远端执行后补录；未观察到成功结果前不标记为通过。
+最终源码提交 `ce25b1bba31655e555ad390a75c1252caa7f6b78` 在全新 GitHub runner 上通过自动 CI 与受控端到端验收：[PurchaseFlow CI #38067068398](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38067068398)；[controlled-purchaseflow-integration #38067080112](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38067080112)。受控验收包含真实 Odoo 响应丢失、UNKNOWN 人工核验、三个浏览器流程以及服务重启后的持久化检查。早期 clean-run 尝试发现并修复了引导顺序、Linux secret-file ownership 与 webhook 注册时序问题；上面链接是修复后的全绿结果。
 
 ## 未验证事项与数据边界
 
