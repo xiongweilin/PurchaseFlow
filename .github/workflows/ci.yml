@@ -1,0 +1,97 @@
+name: PurchaseFlow CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: purchaseflow-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Check toolchain
+        shell: pwsh
+        run: |
+          $PSVersionTable.PSVersion.ToString()
+          docker compose version
+          node --version
+          python --version
+
+      - name: Lint and type-check Python
+        run: |
+          python -m pip install --no-cache-dir pip==26.2.1
+          python -m pip install --no-cache-dir -r requirements-dev.txt
+          ruff check backend tests
+          mypy backend/app
+          pip-audit
+
+      - name: Start isolated PurchaseFlow, Odoo, n8n, and Mailpit stack
+        shell: pwsh
+        run: ./scripts/start-demo.ps1
+
+      - name: Verify n8n intake idempotency and local Mailpit digest
+        shell: pwsh
+        run: ./scripts/verify-demo.ps1 -ExerciseN8nWorkflows
+
+      - name: Create isolated PostgreSQL integration-test database
+        shell: pwsh
+        run: ./scripts/bootstrap-test-db.ps1
+
+      - name: Run backend unit and PostgreSQL concurrency tests
+        run: docker compose -p purchaseflow-demo -f docker-compose.yml --profile test run --rm tests
+
+      - name: Install frontend dependencies and Chromium
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Build TypeScript frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Audit production frontend dependencies
+        working-directory: frontend
+        run: npm audit --registry=https://registry.npmjs.org/ --audit-level=high
+
+      - name: Run requester-to-Odoo Playwright acceptance test
+        working-directory: frontend
+        env:
+          PURCHASEFLOW_WEB_URL: http://127.0.0.1:18081
+        run: npm run e2e
+
+      - name: Capture service logs on failure
+        if: failure()
+        run: docker compose -p purchaseflow-demo -f docker-compose.yml logs --no-color --tail 200
+
+      - name: Stop demo containers (retain volumes)
+        if: always()
+        shell: pwsh
+        run: ./scripts/cleanup-ci.ps1

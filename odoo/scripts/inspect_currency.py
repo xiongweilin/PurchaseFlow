@@ -1,0 +1,8 @@
+print("CURRENCIES", env["res.currency"].with_context(active_test=False).search_read([("name", "in", ["CNY", "USD", "EUR"])], ["id", "name", "active", "symbol", "rounding"]))
+print("CURRENCY_COUNT", env["res.currency"].with_context(active_test=False).search_count([]))
+print("COMPANY_COUNTRY", env.company.country_id.id, env.company.country_id.code, env.company.currency_id.name)
+print("COMPANY_FIELDS", [name for name in env.company._fields if any(key in name for key in ["currency", "country", "partner"])])
+print("USER_GROUP_FIELDS", [name for name in env["res.users"]._fields if "group" in name])
+print("GROUP_USER_FIELDS", [name for name in env["res.groups"]._fields if "user" in name])
+print("PRODUCT_TYPE_SELECTION", env["product.template"]._fields["type"].selection)
+print("TAX_FIELDS", [name for name in env["account.tax"]._fields if name in ["amount", "amount_type", "type_tax_use", "company_id", "country_id", "tax_group_id", "price_include", "invoice_repartition_line_ids", "refund_repartition_line_ids"]])

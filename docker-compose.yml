@@ -1,0 +1,241 @@
+name: purchaseflow-demo
+
+services:
+  db:
+    image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    pull_policy: if_not_present
+    env_file:
+      - .local/postgres.env
+    volumes:
+      - purchaseflow_pgdata:/var/lib/postgresql/data
+      - ./.local:/run/purchaseflow-local:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U purchaseflow_admin -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks: [purchaseflow]
+
+  odoo:
+    image: odoo:19.0-20260926@sha256:dd9013e669caaa23d26765dc55814655eaeecca7cfc2c265dbabae913bce22fd
+    pull_policy: if_not_present
+    env_file:
+      - .local/odoo.env
+    volumes:
+      - purchaseflow_odoo_data:/var/lib/odoo
+      - ./odoo/addons:/mnt/extra-addons:ro
+      - ./.local/odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./.local:/run/purchaseflow-local
+      - ./odoo/scripts:/opt/purchaseflow/odoo-scripts:ro
+    ports:
+      - "127.0.0.1:18069:8069"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8069/web/login', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 36
+      start_period: 45s
+    restart: unless-stopped
+    networks: [purchaseflow]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: purchaseflow-api:local
+    env_file:
+      - .local/app.env
+    environment:
+      PURCHASEFLOW_DEMO_MODE: "true"
+      PURCHASEFLOW_ENVIRONMENT: demo
+      ODOO_BASE_URL: http://odoo:8069
+      ODOO_DATABASE: purchaseflow_odoo
+    volumes:
+      - ./.local:/run/purchaseflow-secrets:ro
+    ports:
+      - "127.0.0.1:18000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      odoo:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+    restart: unless-stopped
+    networks: [purchaseflow]
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: purchaseflow-web:local
+    ports:
+      - "127.0.0.1:18081:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    networks: [purchaseflow]
+  mailpit:
+    image: axllent/mailpit:v1.31.4@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "5000"
+      MP_DISABLE_VERSION_CHECK: "true"
+    volumes:
+      - mailpit_data:/data
+    ports:
+      - "127.0.0.1:18025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    networks: [purchaseflow]
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.42.6@sha256:526daa38b68e923cc00c5280d18b4da5d489f115a73bdbf3b8e452b184197a9a
+    env_file:
+      - .local/n8n.env
+    environment:
+      N8N_HOST: 127.0.0.1
+      N8N_INSTANCE_OWNER_PASSWORD_HASH_FILE: /run/purchaseflow-secrets/n8n-owner-password-hash
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      N8N_LISTEN_ADDRESS: 0.0.0.0
+      N8N_EDITOR_BASE_URL: http://127.0.0.1:18082
+      N8N_WEBHOOK_URL: http://127.0.0.1:18082/
+      N8N_SECURE_COOKIE: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_USAGE_REPORTING_ENABLED: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "true"
+      N8N_COMMUNITY_PACKAGES_ENABLED: "false"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "false"
+      N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES: "268435456"
+      N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES: "1000"
+      GENERIC_TIMEZONE: Asia/Shanghai
+      N8N_PROXY_HOPS: "0"
+      N8N_LOG_LEVEL: info
+      N8N_SMTP_HOST: mailpit
+      N8N_SMTP_PORT: "1025"
+      N8N_SMTP_SENDER: purchaseflow-bot@demo.local
+      N8N_EMAIL_MODE: smtp
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/run/purchaseflow-workflows:ro
+      - ./.local/n8n-import:/run/purchaseflow-import:ro
+      - ./.local/n8n-owner-password-hash:/run/purchaseflow-secrets/n8n-owner-password-hash:ro
+    ports:
+      - "127.0.0.1:18082:5678"
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5678/healthz"]
+      interval: 10s
+      timeout: 4s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+    networks: [purchaseflow]
+  worker:
+    image: purchaseflow-api:local
+    env_file:
+      - .local/app.env
+    environment:
+      PURCHASEFLOW_DEMO_MODE: "true"
+      PURCHASEFLOW_ENVIRONMENT: demo
+      ODOO_BASE_URL: http://odoo:8069
+      ODOO_DATABASE: purchaseflow_odoo
+    volumes:
+      - ./.local:/run/purchaseflow-secrets:ro
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      odoo:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [purchaseflow]
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+    image: purchaseflow-tests:local
+    pull_policy: build
+    environment:
+      DATABASE_URL_TEST_FILE: /run/purchaseflow-test/test-database-url
+    volumes:
+      - ./.local/test-database-url:/run/purchaseflow-test/test-database-url:ro
+    profiles: ["test"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [purchaseflow]
+  bootstrap:
+    image: purchaseflow-api:local
+    env_file:
+      - .local/app.env
+    environment:
+      PURCHASEFLOW_DEMO_MODE: "true"
+      PURCHASEFLOW_ENVIRONMENT: demo
+      ODOO_BASE_URL: http://odoo:8069
+      ODOO_DATABASE: purchaseflow_odoo
+    volumes:
+      - ./.local:/run/purchaseflow-secrets
+      - ./backend:/app/backend
+    command: ["python", "-m", "app.seed"]
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+      odoo:
+        condition: service_healthy
+    networks: [purchaseflow]
+
+volumes:
+  purchaseflow_pgdata:
+    name: purchaseflow-demo-odoo-postgres
+  purchaseflow_odoo_data:
+    name: purchaseflow-demo-odoo-filestore
+  n8n_data:
+    name: purchaseflow-demo-n8n-data
+  mailpit_data:
+    name: purchaseflow-demo-mailpit-data
+
+networks:
+  purchaseflow:
+    name: purchaseflow-demo-network
+    driver: bridge

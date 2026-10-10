@@ -1,0 +1,112 @@
+{
+  "id": "4ca07f03-9e91-443c-9b84-4af611df9a62",
+  "name": "PurchaseFlow · Daily approval and ERP digest",
+  "active": false,
+  "nodes": [
+    {
+      "id": "a1f15977-356e-4fcf-8ae6-a7d9b1f531c3",
+      "name": "Weekdays at 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [1, 2, 3, 4, 5],
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "c8ef99b6-12b0-44c1-a477-21624764e7fe",
+      "name": "Request digest via webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "webhookId": "89f24a7b-2612-4ce9-98f7-60199528bb72",
+      "position": [260, 500],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "purchaseflow/summary",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7af2c27d-7f05-4de0-9a28-91e77018951e",
+          "name": "PurchaseFlow service API"
+        }
+      }
+    },
+    {
+      "id": "589092e4-610b-42f2-8539-c85a74164ced",
+      "name": "Read sanitized workflow summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [540, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/api/integrations/summary",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7af2c27d-7f05-4de0-9a28-91e77018951e",
+          "name": "PurchaseFlow service API"
+        }
+      }
+    },
+    {
+      "id": "cb70bc84-a90a-47be-8ce3-2d6f24f53599",
+      "name": "Send local-only Mailpit digest",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [820, 400],
+      "parameters": {
+        "fromEmail": "PurchaseFlow Demo <purchaseflow-bot@demo.local>",
+        "toEmail": "manager.admin@demo.local, finance.one@demo.local",
+        "subject": "PurchaseFlow · Daily approval and ERP digest",
+        "emailFormat": "text",
+        "text": "={{ 'PurchaseFlow daily summary · CNY\\n\\n' + JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "b88e23c1-b1e8-46a5-9572-412cd47bf33f",
+          "name": "PurchaseFlow Mailpit SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Weekdays at 09:00": {
+      "main": [[{"node": "Read sanitized workflow summary", "type": "main", "index": 0}]]
+    },
+    "Request digest via webhook": {
+      "main": [[{"node": "Read sanitized workflow summary", "type": "main", "index": 0}]]
+    },
+    "Read sanitized workflow summary": {
+      "main": [[{"node": "Send local-only Mailpit digest", "type": "main", "index": 0}]]
+    },
+    "Send local-only Mailpit digest": {
+      "main": [[]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "staticData": null,
+  "tags": []
+}

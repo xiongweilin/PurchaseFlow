@@ -1,0 +1,102 @@
+{
+  "id": "9d047287-d2c9-4ee6-9669-1e488d3ef801",
+  "name": "PurchaseFlow · Authenticated procurement intake",
+  "active": false,
+  "nodes": [
+    {
+      "id": "80ad64d5-91c8-4e37-8a72-628cdf0a5b92",
+      "name": "Authenticated Intake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "webhookId": "7b3a0de1-2c85-46ab-96fa-6e8dc8bf1a26",
+      "position": [260, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "purchaseflow/intake",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7af2c27d-7f05-4de0-9a28-91e77018951e",
+          "name": "PurchaseFlow service API"
+        }
+      }
+    },
+    {
+      "id": "92c43866-87ec-4dba-b51f-7e184d49938b",
+      "name": "Submit idempotent request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [560, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/integrations/procurements",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.body.external_event_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7af2c27d-7f05-4de0-9a28-91e77018951e",
+          "name": "PurchaseFlow service API"
+        }
+      }
+    },
+    {
+      "id": "e7d34b91-8e83-4db2-b3a0-6257e2cc6dd2",
+      "name": "Return API response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [820, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.body }}",
+        "options": {
+          "responseCode": "={{ $json.statusCode }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Authenticated Intake": {
+      "main": [[{"node": "Submit idempotent request", "type": "main", "index": 0}]]
+    },
+    "Submit idempotent request": {
+      "main": [[{"node": "Return API response", "type": "main", "index": 0}]]
+    },
+    "Return API response": {
+      "main": [[]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Shanghai",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "staticData": null,
+  "tags": []
+}

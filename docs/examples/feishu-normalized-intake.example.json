@@ -1,0 +1,14 @@
+{
+  "external_event_id": "evt-synthetic-purchase-0001",
+  "requester_email": "requester.ops@demo.local",
+  "department_code": "OPS",
+  "supplier_ref": "PF-VENDOR-OFFICE",
+  "reason": "Synthetic Feishu event for offline adapter verification.",
+  "lines": [
+    {
+      "sku": "PF-OFFICE-SET",
+      "quantity": "1",
+      "unit_price": "1200.00"
+    }
+  ]
+}
