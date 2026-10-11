@@ -33,6 +33,7 @@ export default function RequestDetail({
   const [working, setWorking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview");
+  const erpDifferences = current.erp?.observation?.differences;
 
   useEffect(() => {
     setCurrent(record);
@@ -187,6 +188,18 @@ export default function RequestDetail({
                         <div><strong>{current.erp.state === "verified" ? "Odoo 采购草稿已核验" : current.erp.state === "unknown" ? "写入结果未知" : current.erp.state === "mismatch" ? "远端事实不匹配" : current.erp.state === "failed" ? "同步失败" : "Odoo 暂不可用"}</strong><small>{current.erp.remote_order_name ? "订单编号 " + current.erp.remote_order_name : status.description}</small></div>
                       </div>
                       {(me.role === "procurement" || me.role === "admin" || me.role === "finance") && current.erp.last_error && <p className="erp-error-message">{current.erp.last_error}</p>}
+                      {current.erp.state === "mismatch" && erpDifferences && Object.keys(erpDifferences).length > 0 && (
+                        <div className="erp-differences" role="alert">
+                          <strong>结案已阻止：Odoo 实际字段与审批快照不一致</strong>
+                          {Object.entries(erpDifferences).map(([field, difference]) => (
+                            <div className="erp-difference-entry" key={field}>
+                              <span>{field}</span>
+                              <p><b>审批快照</b> {formatDifference(difference.expected)}</p>
+                              <p><b>Odoo 实际</b> {formatDifference(difference.actual)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="erp-detail-meta"><span>稳定意图 {current.erp.external_intent_id ?? "已封装"}</span><span>尝试 {current.erp.attempts} 次</span></div>
                       <small className="erp-caution">结果成功后只保留草稿状态；不会确认采购。</small>
                     </div>
@@ -231,6 +244,13 @@ export default function RequestDetail({
       </aside>
     </div>
   );
+}
+
+function formatDifference(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (Array.isArray(value)) return value.map(formatDifference).join(" · ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
 }
 
 function CircleAlertIcon() {

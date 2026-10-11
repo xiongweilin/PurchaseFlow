@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
+from threading import Event, Thread
 from uuid import uuid4
 
 import httpx
@@ -305,6 +306,76 @@ def test_mismatch_is_not_reported_as_success(session_factory):
         assert intent.state == "mismatch"
         assert "state" in intent.last_observation["differences"]
         assert procurement.status == "erp_mismatch"
+
+
+def test_expired_worker_cannot_overwrite_new_workers_verified_observation(session_factory):
+    _, intent_id, event_id, snapshot = seed_intent(session_factory)
+    first_request_started = Event()
+    allow_first_request_to_return = Event()
+    first_result = []
+    first_errors = []
+
+    class SlowStaleOdoo:
+        def read_order(self, marker: str):
+            first_request_started.set()
+            if not allow_first_request_to_return.wait(timeout=5):
+                raise TimeoutError("The test did not release the expired worker request.")
+            return remote_order(snapshot, state="purchase")
+
+        def create_purchase_order(self, snapshot):
+            raise AssertionError("The stale worker must not create after its read returns.")
+
+    def run_expired_worker():
+        try:
+            first_result.append(
+                process_one(
+                    factory=session_factory,
+                    client=SlowStaleOdoo(),
+                    lease_seconds=60,
+                    outbox_id=event_id,
+                )
+            )
+        except Exception as error:  # surfaced in the main test thread below
+            first_errors.append(error)
+
+    first_worker = Thread(target=run_expired_worker, daemon=True)
+    first_worker.start()
+    assert first_request_started.wait(timeout=5)
+
+    with session_factory() as db:
+        event = db.get(OutboxEvent, event_id)
+        assert event.status == "processing"
+        assert event.lease_generation == 1
+        event.lease_until = utcnow() - timedelta(seconds=1)
+        db.commit()
+
+    second_worker = CreatingOdoo()
+    second_worker.remote = remote_order(snapshot)
+    assert process_one(
+        factory=session_factory,
+        client=second_worker,
+        lease_seconds=60,
+        outbox_id=event_id,
+    ) is True
+
+    allow_first_request_to_return.set()
+    first_worker.join(timeout=5)
+    assert not first_worker.is_alive()
+    assert not first_errors
+    assert first_result == [True]
+
+    with session_factory() as db:
+        intent = db.get(ERPIntent, intent_id)
+        procurement = db.get(Procurement, intent.procurement_id)
+        event = db.get(OutboxEvent, event_id)
+        assert intent.state == "verified"
+        assert intent.last_observation["disposition"] == "VERIFIED"
+        assert intent.remote_order_id == 77
+        assert procurement.status == "erp_verified"
+        assert event.status == "done"
+        assert event.lease_generation == 2
+        assert event.attempts == 2
+        assert event.lease_until is None
 
 
 def test_create_transport_timeout_is_unknown_but_read_timeout_is_unavailable():

@@ -22,7 +22,7 @@ The demo is a single synthetic CNY organization. Compose uses one Postgres serve
 - **Frontend:** React 19 + TypeScript + Vite; role-specific worklists, request composer/detail, policy administration, and a read-only view of Odoo-validated mappings.
 - **API:** FastAPI/Pydantic domain boundary. Demo identity selection is explicit and demo-only. API actions re-check role, department, record version, state transition, and organization scope.
 - **Postgres:** source of truth for requests, frozen submission snapshots, approvals, policy versions, idempotency records, audit events, ERP intents, and outbox rows.
-- **Worker:** claims outbox work in a short transaction, performs network I/O outside the request transaction, and records the result. A worker lease is recoverable after a crash.
+- **Worker:** claims outbox work in a short transaction, performs network I/O outside the request transaction, and records the result only while its monotonically increasing lease generation remains current and unexpired. A worker lease is recoverable after a crash; late results from a replaced or expired worker are fenced from local state.
 - **Odoo:** authoritative supplier/product/tax records and the final purchase-draft ledger. The API does not store an Odoo password or use a browser/session cookie.
 - **n8n:** authenticated service integration only. Its workflows call purpose-built integration endpoints; credentials are imported separately and encrypted in n8n's database.
 - **Mailpit:** captures all demo SMTP traffic. No external SMTP relay is configured.

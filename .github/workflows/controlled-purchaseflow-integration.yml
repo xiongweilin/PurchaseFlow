@@ -62,11 +62,20 @@ jobs:
         shell: pwsh
         run: ./scripts/run-erp-unknown-demo.ps1
 
+      - name: Create a real Odoo field mismatch and reject closure
+        shell: pwsh
+        run: ./scripts/run-erp-mismatch-demo.ps1 -Prepare
+
       - name: Run normal, high-value, authorization, and UNKNOWN recovery browser flows
         working-directory: frontend
         env:
           PURCHASEFLOW_WEB_URL: http://127.0.0.1:18081
         run: npm run e2e
+
+      - name: Restore Odoo draft and independently verify it again
+        if: always()
+        shell: pwsh
+        run: ./scripts/run-erp-mismatch-demo.ps1 -Restore
 
       - name: Restart services and verify PostgreSQL, Odoo, n8n, and Mailpit persistence
         shell: pwsh

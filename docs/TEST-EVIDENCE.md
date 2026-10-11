@@ -46,7 +46,15 @@
 
 GitHub Actions 的自动 CI 负责在全新 runner 上安装依赖、启动隔离 Docker/Odoo/n8n/Mailpit、运行 PostgreSQL 并发测试、静态工作流合同与浏览器验收。手动 `controlled-purchaseflow-integration` 工作流额外注入真实 Odoo 响应丢失、执行 UNKNOWN 浏览器恢复并在随后重启服务验证持久化。
 
-最终源码提交 `ce25b1bba31655e555ad390a75c1252caa7f6b78` 在全新 GitHub runner 上通过自动 CI 与受控端到端验收：[PurchaseFlow CI #38067068398](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38067068398)；[controlled-purchaseflow-integration #38067080112](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38067080112)。受控验收包含真实 Odoo 响应丢失、UNKNOWN 人工核验、三个浏览器流程以及服务重启后的持久化检查。早期 clean-run 尝试发现并修复了引导顺序、Linux secret-file ownership 与 webhook 注册时序问题；上面链接是修复后的全绿结果。
+初版源码提交 `ce25b1bba31655e555ad390a75c1252caa7f6b78` 在全新 GitHub runner 上通过自动 CI 与受控端到端验收：[PurchaseFlow CI #38067068398](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38067068398)；[controlled-purchaseflow-integration #38067080112](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38067080112)。受控验收包含真实 Odoo 响应丢失、UNKNOWN 人工核验、三个浏览器流程以及服务重启后的持久化检查。早期 clean-run 尝试发现并修复了引导顺序、Linux secret-file ownership 与 webhook 注册时序问题；上面链接是修复后的全绿结果。
+
+## Worker 租约栅栏、真实 Odoo 错配与 PR 交付
+
+源码验收提交 `ea26985665dff2b0f603fd7f1bf21aecdb804973` 增加 Outbox `lease_generation` 迁移和失效 Worker 写入栅栏。PostgreSQL 并发测试让 Worker A 阻塞在慢读回、租约过期后由 Worker B 接管并核验同一 Odoo 订单，再让 A 返回一份错配读回；最终意图仍为 `VERIFIED`、申请仍为 `erp_verified`、Outbox 保持 `done` 且代次为 2：[PR CI #38102500592](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38102500592) 的 PostgreSQL 并发测试及全套 `acceptance` 检查通过。
+
+受控 runner 使用新建的合成申请和真实 Odoo 19 草稿，将订单行单价从 CNY 1,200.00 改为 CNY 1,201.00。PurchaseFlow 独立读回应进入 `erp_mismatch`，保存并在采购详情页展示审批快照与 Odoo 实际行价/金额差异；工作台不提供结案，直接结案请求返回 HTTP 409。随后脚本将同一 Odoo 草稿恢复到原价，重新读回应变为 `erp_verified`，订单 ID 与单号未变：[controlled-purchaseflow-integration #38102503416](https://github.com/xiongweilin/PurchaseFlow/actions/runs/38102503416)。浏览器差异显示、结案拦截、恢复及服务重启持久化均通过。
+
+PR 交付记录：[PurchaseFlow PR #1](https://github.com/xiongweilin/PurchaseFlow/pull/1)。`main` 已配置分支保护：要求 Pull Request、`acceptance` 检查通过且分支保持最新，并对管理员启用；当前要求审批人数为 0，以便单人维护仓库仍能经 PR 合并。
 
 ## 未验证事项与数据边界
 

@@ -28,6 +28,7 @@ def _persist_observation(
     *,
     intent_id: UUID,
     outbox_id: UUID,
+    lease_generation: int,
     state: str,
     disposition: str,
     write_attempted: bool,
@@ -37,13 +38,30 @@ def _persist_observation(
     differences: dict | None = None,
     error: str | None = None,
     retry_seconds: int = 0,
-) -> None:
+) -> bool:
     with factory() as db:
+        event = db.execute(
+            select(OutboxEvent)
+            .where(
+                OutboxEvent.id == outbox_id,
+                OutboxEvent.status == "processing",
+                OutboxEvent.lease_generation == lease_generation,
+            )
+            .with_for_update()
+        ).scalar_one_or_none()
+        now = utcnow()
+        lease_until = event.lease_until if event is not None else None
+        if lease_until is not None and lease_until.tzinfo is None:
+            lease_until = lease_until.replace(tzinfo=now.tzinfo)
+        if event is None or lease_until is None or lease_until <= now:
+            logger.info(
+                "Discarded stale ERP worker observation for outbox %s generation %s",
+                outbox_id,
+                lease_generation,
+            )
+            return False
         intent = db.execute(
             select(ERPIntent).where(ERPIntent.id == intent_id).with_for_update()
-        ).scalar_one()
-        event = db.execute(
-            select(OutboxEvent).where(OutboxEvent.id == outbox_id).with_for_update()
         ).scalar_one()
         procurement = db.execute(
             select(Procurement).where(Procurement.id == intent.procurement_id).with_for_update()
@@ -89,6 +107,7 @@ def _persist_observation(
             metadata={"write_attempted": write_attempted, "error": intent.last_error},
         )
         db.commit()
+        return True
 
 
 def _complete_remote(
@@ -96,18 +115,19 @@ def _complete_remote(
     *,
     intent_id: UUID,
     outbox_id: UUID,
+    lease_generation: int,
     remote: dict,
 ) -> None:
     with factory() as db:
         intent = db.execute(select(ERPIntent).where(ERPIntent.id == intent_id)).scalar_one()
         snapshot = dict(intent.expected_snapshot)
     differences = compare_order(snapshot, remote)
-    header = remote.get("header", {})
     if differences:
         _persist_observation(
             factory,
             intent_id=intent_id,
             outbox_id=outbox_id,
+            lease_generation=lease_generation,
             state="mismatch",
             disposition="MISMATCH",
             write_attempted=True,
@@ -118,17 +138,11 @@ def _complete_remote(
             error="Odoo facts do not match the approved request snapshot.",
         )
         return
-    with factory() as db:
-        intent = db.execute(
-            select(ERPIntent).where(ERPIntent.id == intent_id).with_for_update()
-        ).scalar_one()
-        intent.remote_order_id = int(header["id"])
-        intent.remote_order_name = str(header["name"])
-        db.commit()
     _persist_observation(
         factory,
         intent_id=intent_id,
         outbox_id=outbox_id,
+        lease_generation=lease_generation,
         state="verified",
         disposition="VERIFIED",
         write_attempted=True,
@@ -184,6 +198,9 @@ def process_one(
             event.attempts += 1
             intent.attempts += 1
             intent.state = "dispatching"
+            event.lease_generation += 1
+            lease_generation = event.lease_generation
+            attempt = event.attempts
             if procurement.status in {"approved", "erp_unavailable"}:
                 procurement.status = "erp_pending"
                 procurement.version += 1
@@ -200,18 +217,25 @@ def process_one(
                 factory,
                 intent_id=intent_id,
                 outbox_id=outbox_id,
+                lease_generation=lease_generation,
                 state=state,
                 disposition=disposition,
                 write_attempted=not can_create,
                 event_status="pending" if can_create else "done",
                 procurement_status="erp_pending" if can_create else "erp_unknown",
                 error=str(error),
-                retry_seconds=min(60, 2 ** min(5, event.attempts)),
+                retry_seconds=min(60, 2 ** min(5, attempt)),
             )
             return True
 
         if remote is not None:
-            _complete_remote(factory, intent_id=intent_id, outbox_id=outbox_id, remote=remote)
+            _complete_remote(
+                factory,
+                intent_id=intent_id,
+                outbox_id=outbox_id,
+                lease_generation=lease_generation,
+                remote=remote,
+            )
             return True
 
         if not can_create:
@@ -219,6 +243,7 @@ def process_one(
                 factory,
                 intent_id=intent_id,
                 outbox_id=outbox_id,
+                lease_generation=lease_generation,
                 state="unknown",
                 disposition="ABSENT",
                 write_attempted=True,
@@ -235,6 +260,7 @@ def process_one(
                 factory,
                 intent_id=intent_id,
                 outbox_id=outbox_id,
+                lease_generation=lease_generation,
                 state="unknown",
                 disposition="UNKNOWN",
                 write_attempted=True,
@@ -252,6 +278,7 @@ def process_one(
                         factory,
                         intent_id=intent_id,
                         outbox_id=outbox_id,
+                        lease_generation=lease_generation,
                         state="unknown",
                         disposition="UNKNOWN",
                         write_attempted=True,
@@ -262,13 +289,18 @@ def process_one(
                     return True
                 if duplicate is not None:
                     _complete_remote(
-                        factory, intent_id=intent_id, outbox_id=outbox_id, remote=duplicate
+                    factory,
+                    intent_id=intent_id,
+                    outbox_id=outbox_id,
+                    lease_generation=lease_generation,
+                    remote=duplicate,
                     )
                     return True
             _persist_observation(
                 factory,
                 intent_id=intent_id,
                 outbox_id=outbox_id,
+                lease_generation=lease_generation,
                 state="failed",
                 disposition="FAILED",
                 write_attempted=True,
@@ -285,6 +317,7 @@ def process_one(
                 factory,
                 intent_id=intent_id,
                 outbox_id=outbox_id,
+                lease_generation=lease_generation,
                 state="unknown",
                 disposition="UNKNOWN",
                 write_attempted=True,
@@ -298,6 +331,7 @@ def process_one(
                 factory,
                 intent_id=intent_id,
                 outbox_id=outbox_id,
+                lease_generation=lease_generation,
                 state="unknown",
                 disposition="UNKNOWN",
                 write_attempted=True,
@@ -306,7 +340,13 @@ def process_one(
                 error="Create response received, but the order was absent from independent read-back.",
             )
             return True
-        _complete_remote(factory, intent_id=intent_id, outbox_id=outbox_id, remote=verified_remote)
+        _complete_remote(
+            factory,
+            intent_id=intent_id,
+            outbox_id=outbox_id,
+            lease_generation=lease_generation,
+            remote=verified_remote,
+        )
         return True
     finally:
         if owns_client:
