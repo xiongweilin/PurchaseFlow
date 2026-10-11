@@ -260,6 +260,7 @@ def process_one(
                 factory,
                 intent_id=intent_id,
                 outbox_id=outbox_id,
+                lease_generation=lease_generation,
                 state="unknown",
                 disposition="UNKNOWN",
                 write_attempted=True,
