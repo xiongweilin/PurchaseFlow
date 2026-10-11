@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-if ([int]$Prepare + [int]$Restore -ne 1) {
+if ($Prepare.IsPresent -eq $Restore.IsPresent) {
     throw "Specify exactly one of -Prepare or -Restore."
 }
 
