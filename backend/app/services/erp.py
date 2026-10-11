@@ -40,7 +40,6 @@ def _persist_observation(
     retry_seconds: int = 0,
 ) -> bool:
     with factory() as db:
-        now = utcnow()
         event = db.execute(
             select(OutboxEvent)
             .where(
@@ -50,6 +49,7 @@ def _persist_observation(
             )
             .with_for_update()
         ).scalar_one_or_none()
+        now = utcnow()
         lease_until = event.lease_until if event is not None else None
         if lease_until is not None and lease_until.tzinfo is None:
             lease_until = lease_until.replace(tzinfo=now.tzinfo)
