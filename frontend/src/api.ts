@@ -65,7 +65,12 @@ export interface ERPView {
   state: string;
   remote_order_name: string | null;
   attempts: number;
-  observation: Record<string, unknown> | null;
+  observation: {
+    disposition?: string;
+    observed_at?: string;
+    differences?: Record<string, { expected?: unknown; actual?: unknown }>;
+    [key: string]: unknown;
+  } | null;
   observed_at: string | null;
   intent_id?: string;
   external_intent_id?: string;
