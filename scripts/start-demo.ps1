@@ -55,8 +55,8 @@ try {
     Write-Host "[6/8] Applying Alembic migrations and seeding idempotent demo data..."
     $bootstrapUserArgs = @()
     if ($IsLinux -or $IsMacOS) {
-        # The seed writes a mode-0600 automation token into the bind-mounted .local directory.
-        # Match the host UID/GID so the host provisioner can read it without weakening file mode.
+        # Seed 会把 mode-0600 的 automation token 写入 bind mount 的 .local 目录。
+        # 匹配宿主 UID/GID，让宿主 provisioner 可读，同时不削弱文件权限。
         $hostUid = (& id -u).Trim()
         if ($LASTEXITCODE -ne 0) { throw "Unable to read the host UID for the bootstrap container." }
         $hostGid = (& id -g).Trim()

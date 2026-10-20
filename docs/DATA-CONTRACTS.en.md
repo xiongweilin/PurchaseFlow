@@ -1,6 +1,6 @@
 # Business field source, version, and verification contract
 
-This document defines responsibility for persisted fields across the request API, approvals, background execution, and Odoo. An API request becomes a procurement fact only after validation completes and it is bound to a request version.
+Persisted fields across the request API, approvals, background execution, and Odoo have the following responsibilities. An API request becomes a procurement fact only after validation completes and it is bound to a request version.
 
 | Field | authoritative source / state | owner and version binding | validation / read-back | allowed use |
 |---|---|---|---|---|

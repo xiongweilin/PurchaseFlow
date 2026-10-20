@@ -120,9 +120,8 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'purchaseflow_odoo')
 $sql = $sql.Replace("__DOLLAR__", '$')
 Set-Content -LiteralPath $sqlPath -Encoding utf8 -Value $sql
 
-# Compose validates every service's env_file during some read-only queries. These
-# empty placeholders let the Odoo-only bootstrap run before the app/n8n bootstrap
-# scripts write their real local configuration.
+# Compose 在某些只读查询中会校验每个服务的 env_file。这些空占位文件让
+# Odoo 专用引导流程可以在应用/n8n 引导脚本写入真实本地配置之前运行。
 foreach ($name in @("app.env", "n8n.env")) {
     $path = Join-Path $localRoot $name
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {

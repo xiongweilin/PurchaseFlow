@@ -125,5 +125,6 @@ The command stops containers and **preserves** PostgreSQL, Odoo filestore, n8n, 
 - [Recording and subtitles](docs/RECORDING.en.md)
 - [Feishu adapter status and tenant onboarding](docs/FEISHU.md)
 - [Versioned n8n workflows](n8n/workflows/)
+- [Contributing](CONTRIBUTING.md)
 
 Feishu is an optional extension and is not connected to a real tenant; this project does not claim a live Feishu integration.

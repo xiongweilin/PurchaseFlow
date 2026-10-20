@@ -125,5 +125,6 @@ pwsh ./scripts/stop-demo.ps1
 - [录屏与字幕](docs/RECORDING.md)
 - [Feishu 适配器状态与租户接入](docs/FEISHU.zh-CN.md)
 - [版本化 n8n 工作流](n8n/workflows/README.zh-CN.md)
+- [贡献指南](CONTRIBUTING.zh-CN.md)
 
 Feishu 是一个可选扩展，目前未连接真实租户；本项目不声称已有在线 Feishu 集成。
