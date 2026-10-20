@@ -1,5 +1,7 @@
 # PurchaseFlow
 
+[English](README.en.md) | 简体中文
+
 **面向中小企业的采购审批与 Odoo 19 草稿采购单集成演示。**
 
 员工提交采购申请后，系统按部门和金额路由人工审批。获批后，后台工作进程只在真实 Odoo 中创建草稿采购单，并独立读回核对；只有核验通过的申请才能结案。
@@ -110,18 +112,18 @@ pwsh ./scripts/stop-demo.ps1
 
 ![PurchaseFlow 分角色工作台](docs/assets/purchaseflow-overview.png)
 
-- [系统架构](docs/ARCHITECTURE.md)
+- [系统架构](docs/ARCHITECTURE.zh-CN.md)
 - [业务规则](docs/BUSINESS-RULES.md)
 - [工作流权限与失败状态](docs/WORKFLOW-AUTHORITY.md)
 - [数据合同](docs/DATA-CONTRACTS.md)
 - [Odoo 集成与安全边界](docs/ODOO-INTEGRATION.md)
-- [本地运行手册](docs/RUNBOOK.md)
-- [安全边界](docs/SECURITY.md)
+- [本地运行手册](docs/RUNBOOK.zh-CN.md)
+- [安全边界](docs/SECURITY.zh-CN.md)
 - [测试证据与限制](docs/TEST-EVIDENCE.md)
-- [求职作品说明](docs/PORTFOLIO.md)
+- [求职作品说明](docs/PORTFOLIO.zh-CN.md)
 - [面试讲解稿](docs/INTERVIEW-PITCH.md)
 - [录屏与字幕](docs/RECORDING.md)
-- [Feishu 适配器状态与租户接入](docs/FEISHU.md)
-- [版本化 n8n 工作流](n8n/workflows/)
+- [Feishu 适配器状态与租户接入](docs/FEISHU.zh-CN.md)
+- [版本化 n8n 工作流](n8n/workflows/README.zh-CN.md)
 
 Feishu 是一个可选扩展，目前未连接真实租户；本项目不声称已有在线 Feishu 集成。
