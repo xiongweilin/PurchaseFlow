@@ -1,6 +1,6 @@
 # 业务字段来源、版本与核验契约
 
-本文件定义跨申请 API、审批、后台执行和 Odoo 的持久字段责任。API 请求只在完成验证并绑定申请版本后成为采购事实。
+跨申请 API、审批、后台执行和 Odoo 的持久字段责任如下。API 请求只在完成验证并绑定申请版本后成为采购事实。
 
 | 字段 | authoritative source / state | owner 与版本绑定 | validation / read-back | allowed use |
 |---|---|---|---|---|

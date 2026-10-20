@@ -1,6 +1,6 @@
 # 测试证据与环境边界
 
-记录日期：2026-10-11（Asia/Shanghai）。运行结果来自本地隔离演示栈与全新 GitHub Actions runner；本文件只记录已观察到的验收，不代表生产部署。
+记录日期：2026-10-11（Asia/Shanghai）。运行结果来自本地隔离演示栈与全新 GitHub Actions runner；只记录已观察到的验收，不代表生产部署。
 
 ## 真实 Odoo 19 Community
 

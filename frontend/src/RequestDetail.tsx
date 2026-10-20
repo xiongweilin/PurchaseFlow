@@ -85,7 +85,7 @@ export default function RequestDetail({
         const fresh = await api.procurement(current.id);
         setCurrent(fresh);
       } catch {
-        // Preserve the last authorized snapshot while the API is unavailable.
+        // API 不可用时保留最后一次已授权的快照。
       }
     } finally {
       setWorking(false);

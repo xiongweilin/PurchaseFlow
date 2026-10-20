@@ -129,7 +129,7 @@ def demo_identities(db: DB) -> list[dict]:
 def start_demo_session(body: DemoSessionIn, response: Response, db: DB) -> dict:
     require_demo_mode()
     if body.role == "admin":
-        # Admin may manage demo configuration, but does not receive approval authority.
+        # 管理员可以管理演示配置，但不获得审批权限。
         pass
     query = (
         select(Membership, User, Department)
