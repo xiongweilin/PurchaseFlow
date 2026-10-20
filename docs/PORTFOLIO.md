@@ -34,13 +34,13 @@ If a create response is lost, the application records `erp_unknown` and stops au
 
 ## Evidence
 
-- Real Odoo 19 Community JSON-2 create, independent read-back, duplicate-intent guard, and persistence check: [test evidence](TEST-EVIDENCE.md).
+- Real Odoo 19 Community JSON-2 create, independent read-back, duplicate-intent guard, and persistence check: [test evidence](TEST-EVIDENCE.en.md).
 - Python unit and Postgres concurrency tests: tests/.
 - Browser acceptance: requester -> manager -> Odoo draft verification, distinct finance review, and UNKNOWN recovery: [frontend/tests](../frontend/tests/).
 - n8n authenticated intake/replay and local Mailpit digest: scripts/verify-demo.ps1 -ExerciseN8nWorkflows.
 - [PurchaseFlow workbench](assets/purchaseflow-overview.png), [submitted request](assets/purchaseflow-submitted-request.png), [real Odoo draft read-back](assets/purchaseflow-odoo-verified.png), [UNKNOWN before reconciliation](assets/purchaseflow-unknown-before-reconcile.png), [recovered UNKNOWN request](assets/purchaseflow-unknown-recovered.png), [n8n intake](assets/n8n-procurement-intake.png), [n8n daily digest](assets/n8n-daily-digest.png), and [Mailpit digest](assets/purchaseflow-mailpit-digest.png).
-- Recorded walkthrough and Chinese subtitles: [recording](assets/purchaseflow-demo.mp4), [SRT subtitles](assets/purchaseflow-demo.zh-CN.srt), [recording outline](RECORDING.md).
-- Short interview explanation: [INTERVIEW-PITCH.md](INTERVIEW-PITCH.md).
+- Recorded walkthrough and Chinese subtitles: [recording](assets/purchaseflow-demo.mp4), [SRT subtitles](assets/purchaseflow-demo.zh-CN.srt), [recording outline](RECORDING.en.md).
+- Short interview explanation: [INTERVIEW-PITCH.en.md](INTERVIEW-PITCH.en.md).
 
 ## Screenshots
 
